@@ -8,7 +8,7 @@ resource "tls_private_key" "this" {
 }
 
 resource "aws_key_pair" "this" {
-  key_name   = "${var.name_prefix}-key}"
+  key_name   = "${var.name_prefix}-key"
   public_key = tls_private_key.this.public_key_openssh
 }
 
