@@ -4,7 +4,8 @@ variable "region" {
   default     = "us-east-2"
 }
 
-variable "component_data" {
-  description = "Component data for software and configurations installation"
+variable "profile" {
+  description = "AWS profile"
   type        = string
+  default     = "default"
 }

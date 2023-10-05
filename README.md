@@ -1,86 +1,61 @@
-# AWS Test Webserver Image Builder using Terraform
+# EC2 Image Builder Terraform Module
 
-This Terraform module provides a structured way to create an AWS EC2 image (AMI) using AWS Image Builder. The generated image is based on Ubuntu 20.04 and is configured with a basic web server setup, serving a static "Hello World!" page. The module ensures that the necessary AWS resources, such as IAM roles and policies, are created and configured correctly to facilitate the image building process.
+## Introduction
+
+This Terraform module automates the creation of Amazon Machine Images (AMIs) using the AWS EC2 Image Builder service. It's designed to be flexible and reusable across various AWS environments.
+
+## Key Components
+
+- **Dynamic Component:** Enables custom software and configuration installations during the AMI build process.
+- **Key Pair Management:** Generates and manages an AWS Key Pair for EC2 instance access.
+- **IAM Role & Instance Profile:** Establishes necessary IAM roles and instance profiles for EC2 Image Builder.
+- **Image Recipe Management:** Manages the creation and configuration of Image Builder recipes.
+- **Infrastructure Configuration:** Manages configurations related to the image build process.
+- **Distribution Configuration:** Handles the distribution settings of the AMI.
+- **Image Pipeline:** Automates the AMI build process using the defined recipe and configurations.
+
+## Usage
+
+### Module Usage Example
+
+```hcl
+module "ami_builder" {
+  source              = "../../modules/ec2_image_builder"
+  region              = var.region
+  name_prefix         = "example"
+  component_data      = file("${path.module}/component_data.yaml")
+  recipe_description  = "Example AMI build recipe"
+  additional_components = [
+    "arn:aws:imagebuilder:${var.region}:aws:component/amazon-cloudwatch-agent-linux/1.0.1/1",
+    "arn:aws:imagebuilder:${var.region}:aws:component/aws-cli-version-2-linux/1.0.4/1"
+  ]
+}
+```
+
+### Variables
+
+- `region`: AWS region for resource creation.
+- `name_prefix`: Prefix for naming AWS resources.
+- `component_data`: YAML string defining software and configurations for the AMI.
+- `recipe_description`: Description of the image recipe.
+- `additional_components`: Additional component ARNs for the image recipe.
+
+### Outputs
+
+- `account_id`: AWS account ID.
+- `region`: AWS region.
 
 ## Prerequisites
 
-- Terraform v1.0+
-- AWS CLI configured with appropriate AWS credentials
-- An AWS account
+- Configured AWS CLI with necessary credentials.
+- Terraform v1.x.x+.
 
-## Quick Start
+## Notes
 
-1. **Clone the Repository:**
-   ```shell
-   git clone [repository_url]
-   ```
-   
-2. **Navigate to the Project Directory:**
-   ```shell
-   cd [project_directory]
-   ```
-   
-3. **Initialize Terraform:**
-   ```shell
-   terraform init
-   ```
-   
-4. **Apply the Terraform Configuration:**
-   ```shell
-   terraform apply
-   ```
-   
-## Module Components
+- Validate the `component_data` YAML for syntax and logical errors.
+- Ensure the executing AWS profile has the necessary IAM permissions.
+- Secure and manage the private key file according to security best practices.
 
-### AWS Provider and Required Providers
+## License
 
-The module is configured to use the AWS provider and has been tested with version `5.18.1` of the AWS provider plugin.
-
-### IAM Role and Policies
-
-An IAM role `ImageBuilderInstanceRole` and an instance profile `ImageBuilderInstanceProfile` are created to allow EC2 instances to perform the necessary actions during the image-building process. The role is attached with AWS managed policies that grant permissions for EC2 Image Builder and Amazon SSM.
-
-### AWS Key Pair
-
-A new RSA key pair `test_webserver_key` is generated and stored both in AWS and locally as `test_key.pem`. This key pair is used to launch the EC2 instance during the image-building process.
-
-### AWS Image Builder Components
-
-- **Component:** A custom component `test_webserver_imagebuilder_component` is defined to perform the following during the build phase:
-  - Update and upgrade the system packages.
-  - Install necessary software (git, unzip, jq, net-tools, python3-pip, python-is-python3, apache2).
-  - Configure Apache to serve a static "Hello World!" page.
-  
-- **Image Recipe:** An image recipe `test_webserver_imagebuilder_image_recipe` is defined using the custom component and two AWS provided components for Amazon CloudWatch Agent and AWS CLI version 2.
-
-- **Infrastructure Configuration:** An infrastructure configuration `test_webserver_imagebuilder_infra_config` is defined to specify the instance type and key pair used during the build.
-
-- **Distribution Configuration:** A distribution configuration `test_webserver_imagebuilder_dist_config` is defined to specify the region where the AMI will be available and the naming convention for the AMI.
-
-- **Image Pipeline:** An image pipeline `test_webserver_imagebuilder_pipeline` is defined to tie together the recipe, infrastructure configuration, and distribution configuration, enabling the automated building and testing of the image.
-
-## Outputs
-
-- **Account ID:** The AWS account ID is output to the console.
-- **Private Key Path:** The path to the locally stored private key is output to the console. Note that this output is marked as sensitive.
-
-## Variables
-
-- **region:** AWS region where resources will be created. Default is `us-east-2`.
-
-## Usage Notes
-
-- Ensure that your AWS credentials are configured correctly to allow the creation of the specified resources.
-- The private key is stored locally and should be secured appropriately.
-- The generated AMI will be named in the format `test_webserver-worker-[buildDate]` and tagged with `Name: test_webserver-worker-AMI`.
-- Ensure to destroy the resources after testing to avoid incurring unnecessary AWS costs.
-
-## Cleanup
-
-To destroy the created resources, use the following Terraform command:
-
-```shell
-terraform destroy
-```
-
-Ensure to verify in the AWS Management Console that all resources created during the apply phase are destroyed.
+MIT License.

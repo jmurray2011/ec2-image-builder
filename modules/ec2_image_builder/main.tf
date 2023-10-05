@@ -1,15 +1,19 @@
-resource "tls_private_key" "test_webserver_key" {
+resource "random_id" "server" {
+  byte_length = 12
+}
+
+resource "tls_private_key" "this" {
   algorithm = "RSA"
   rsa_bits  = 4096
 }
 
-resource "aws_key_pair" "test_webserver_key" {
-  key_name   = "test_webserver_key"
-  public_key = tls_private_key.test_webserver_key.public_key_openssh
+resource "aws_key_pair" "this" {
+  key_name   = "${var.name_prefix}-key}"
+  public_key = tls_private_key.this.public_key_openssh
 }
 
 resource "local_file" "private_key_output" {
-  content  = tls_private_key.test_webserver_key.private_key_pem
+  content  = tls_private_key.this.private_key_pem
   filename = "${path.module}/test_key.pem"
 }
 
@@ -18,13 +22,13 @@ output "private_key_path" {
   sensitive = true
 }
 
-resource "aws_iam_instance_profile" "imagebuilder_instance_profile" {
-  name = "ImageBuilderInstanceProfile"
-  role = aws_iam_role.imagebuilder_instance_role.name
+resource "aws_iam_instance_profile" "this" {
+  name = "${var.name_prefix}_ImageBuilderInstanceProfile"
+  role = aws_iam_role.this.name
 }
 
-resource "aws_iam_role" "imagebuilder_instance_role" {
-  name = "ImageBuilderInstanceRole"
+resource "aws_iam_role" "this" {
+  name = "${var.name_prefix}_ImageBuilderInstanceRole"
   assume_role_policy = jsonencode({
     Version = "2012-10-17",
     Statement = [
@@ -44,59 +48,20 @@ resource "aws_iam_role" "imagebuilder_instance_role" {
 }
 
 
-resource "aws_imagebuilder_component" "test_webserver_imagebuilder_component" {
-  name        = "test_webserver_imagebuilder_component"
-  description = "Install Pre-requisites, configure SSM"
+resource "aws_imagebuilder_component" "dynamic_component" {
+  name        = "${var.name_prefix}_component"
+  description = "Dynamic component that installs user-defined software and configurations"
   version     = "1.0.0"
   platform    = "Linux"
 
-  data = <<-EOD
-name: InstallSoftware
-description: Install Pre-requisites, configure SSM
-schemaVersion: 1.0
-
-phases:
-  - name: build
-    steps:
-      - name: InstallPrerequisites
-        action: ExecuteBash
-        inputs:
-          commands:
-            - apt-get update -y
-            - apt-get upgrade -y
-            - apt-get install -y git unzip jq net-tools python3-pip python-is-python3 apache2
-      - name: ConfigureDefaultApachePage
-        action: ExecuteBash
-        inputs:
-          commands:
-            - echo "Hello World!" > /var/www/html/index.html
-            - systemctl enable apache2
-            - systemctl start apache2
-EOD
-
+  data = var.component_data
 }
 
-data "aws_ami" "ubuntu_20_04" {
-  most_recent = true
-
-  filter {
-    name   = "name"
-    values = ["ubuntu/images/hvm-ssd/ubuntu-focal-20.04-amd64-server-*"]
-  }
-
-  filter {
-    name   = "virtualization-type"
-    values = ["hvm"]
-  }
-
-  owners = ["099720109477"] # Canonical
-}
-
-resource "aws_imagebuilder_image_recipe" "test_webserver_imagebuilder_image_recipe" {
-  name         = "test_webserver_imagebuilder_image_recipe"
-  description  = "Recipe to build a Test Webserver AMI"
+resource "aws_imagebuilder_image_recipe" "this" {
+  name         = "${var.name_prefix}-recipe"
+  description  = var.recipe_description
   version      = "1.0.0"
-  parent_image = data.aws_ami.ubuntu_20_04.image_id
+  parent_image = var.parent_image
 
   block_device_mapping {
     device_name = "/dev/sda1"
@@ -107,46 +72,49 @@ resource "aws_imagebuilder_image_recipe" "test_webserver_imagebuilder_image_reci
       volume_type           = "gp2"
     }
   }
+
   component {
-    component_arn = "arn:aws:imagebuilder:us-east-2:aws:component/amazon-cloudwatch-agent-linux/1.0.1/1"
+    component_arn = aws_imagebuilder_component.dynamic_component.arn
   }
-  component {
-    component_arn = "arn:aws:imagebuilder:us-east-2:aws:component/aws-cli-version-2-linux/1.0.4/1"
-  }
-  component {
-    component_arn = aws_imagebuilder_component.test_webserver_imagebuilder_component.arn
+
+  dynamic "component" {
+    for_each = var.additional_components
+
+    content {
+      component_arn = component.value
+    }
   }
 }
 
-resource "aws_imagebuilder_infrastructure_configuration" "test_webserver_imagebuilder_infra_config" {
-  name = "test_webserver_imagebuilder_infra_config"
+resource "aws_imagebuilder_infrastructure_configuration" "this" {
+  name = "${var.name_prefix}_InfrastructureConfiguration"
 
-  instance_profile_name = aws_iam_instance_profile.imagebuilder_instance_profile.name
+  instance_profile_name = aws_iam_instance_profile.this.name
   instance_types        = ["t3.medium"]
-  key_pair              = aws_key_pair.test_webserver_key.key_name
+  key_pair              = aws_key_pair.this.key_name
 }
 
-resource "aws_imagebuilder_distribution_configuration" "test_webserver_imagebuilder_dist_config" {
-  name = "test_webserver_imagebuilder_dist_config"
+resource "aws_imagebuilder_distribution_configuration" "this" {
+  name = "${var.name_prefix}_DistributionConfiguration"
 
   distribution {
     region = var.region
     ami_distribution_configuration {
-      name = "test_webserver-worker-{{ imagebuilder:buildDate }}"
+      name = "${var.name_prefix}-{{ imagebuilder:buildDate }}"
     }
   }
 
   tags = {
-    Name = "test_webserver-worker-AMI"
+    Name = "${var.name_prefix}-AMI"
   }
 }
 
-resource "aws_imagebuilder_image_pipeline" "test_webserver_imagebuilder_pipeline" {
-  name = "test_webserver_imagebuilder_pipeline"
+resource "aws_imagebuilder_image_pipeline" "this" {
+  name = "${var.name_prefix}_ImagePipeline"
 
-  image_recipe_arn                 = aws_imagebuilder_image_recipe.test_webserver_imagebuilder_image_recipe.arn
-  infrastructure_configuration_arn = aws_imagebuilder_infrastructure_configuration.test_webserver_imagebuilder_infra_config.arn
-  distribution_configuration_arn   = aws_imagebuilder_distribution_configuration.test_webserver_imagebuilder_dist_config.arn
+  image_recipe_arn                 = aws_imagebuilder_image_recipe.this.arn
+  infrastructure_configuration_arn = aws_imagebuilder_infrastructure_configuration.this.arn
+  distribution_configuration_arn   = aws_imagebuilder_distribution_configuration.this.arn
 
   enhanced_image_metadata_enabled = true
 }

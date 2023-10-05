@@ -9,14 +9,14 @@ terraform {
 
 provider "aws" {
   region  = var.region
-  profile = "default"
+  profile = var.profile
 
   default_tags {
     tags = {
-      Environment   = "personal"
-      Service       = "testing"
-      ManagedBy     = "ec2-image-builder Terraform Repo"
-      ManagedByTeam = "Terraform"
+      Environment   = var.profile
+      ManagedBy     = "Terraform"
+      ManagedByTeam = "DevOps"
+      Project       = "Image Builder"
     }
   }
 }
