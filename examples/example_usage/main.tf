@@ -1,3 +1,5 @@
+data "aws_caller_identity" "current" {}
+
 module "ami_builder" {
   source = "../../modules/ec2_image_builder"
 
@@ -9,4 +11,11 @@ module "ami_builder" {
     "arn:aws:imagebuilder:${var.region}:aws:component/amazon-cloudwatch-agent-linux/1.0.1/1",
     "arn:aws:imagebuilder:${var.region}:aws:component/aws-cli-version-2-linux/1.0.4/1"
   ]
+
+  default_tags = {
+    Environment   = "default"
+    ManagedBy     = "Terraform"
+    ManagedByTeam = "DevOps"
+    Project       = "Image Builder"
+  }
 }

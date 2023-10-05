@@ -84,6 +84,11 @@ resource "aws_imagebuilder_image_recipe" "this" {
       component_arn = component.value
     }
   }
+
+  lifecycle {
+    create_before_destroy = true
+  }
+
 }
 
 resource "aws_imagebuilder_infrastructure_configuration" "this" {
@@ -101,6 +106,9 @@ resource "aws_imagebuilder_distribution_configuration" "this" {
     region = var.region
     ami_distribution_configuration {
       name = "${var.name_prefix}-{{ imagebuilder:buildDate }}"
+      ami_tags = {
+        Name = "${var.name_prefix}-{{ imagebuilder:buildDate }}"
+      }
     }
   }
 

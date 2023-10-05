@@ -37,3 +37,14 @@ variable "additional_components" {
   type        = list(string)
   default     = []
 }
+
+variable "default_tags" {
+  description = "Default tags to be applied to AWS resources."
+  type        = map(string)
+  default     = {
+    Environment   = "default" # This can be overridden to use var.profile or another variable
+    ManagedBy     = "Terraform"
+    ManagedByTeam = "DevOps"
+    Project       = "Image Builder"
+  }
+}
