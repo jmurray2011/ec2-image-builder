@@ -14,7 +14,7 @@ resource "aws_key_pair" "this" {
 
 resource "local_file" "private_key_output" {
   content  = tls_private_key.this.private_key_pem
-  filename = "${path.module}/test_key.pem"
+  filename = "${path.module}/${var.name_prefix}.pem"
 }
 
 output "private_key_path" {
